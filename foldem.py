@@ -145,9 +145,9 @@ for donor in donorsList:
     fahObjs = vropsObjects["resourceList"]
     donorRes = ""
     for fahObj in fahObjs:
-        print(donor)
         if fahObj["resourceKey"]["name"] == str(donor['id']):
             donorRes = fahObj
+            break
 
     # If no team found create it
     if donorRes == "":
@@ -186,4 +186,4 @@ for donor in donorsList:
 
     response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload)
 
-response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD",POST,"",json.dumps(teamChildren))
+response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",json.dumps(teamChildren))
