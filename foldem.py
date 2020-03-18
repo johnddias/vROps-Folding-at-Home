@@ -165,7 +165,6 @@ for donor in donorsList:
         donorRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
         #add to list of children to be added to teams
         teamChildren.append(donorRes["identifier"])
-        print(teamChildren)
      # Push donor stats; new donors are unranked so this has to be dealt with
     donorRank = 0
     if 'rank' in donor:
