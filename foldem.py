@@ -66,7 +66,6 @@ def vropsRequest(request,method,querystring="",payload=""):
         response = requests.request(method, url, headers=headers, json=payload, verify=verify)
     else:
         response = requests.request(method, url, headers=headers, verify=verify)
-
     print ("Request " + response.url + " returned status " + str(response.status_code))
     if response.text:
         return response.json()
@@ -80,15 +79,15 @@ def foldRequest(request,method,querystring="",payload=""):
     retry = True
     while retry:
         response = requests.request(method, url, headers=headers)
-        print ("Request " + response.url + " returned status " + str(response.status_code))
+        #print ("Request " + response.url + " returned status " + str(response.status_code))
         if response.status_code == 200:
             return response.json()
-        else:
-            time.sleep(10)
 
-#teamStats = foldRequest("team/"+teamId,"GET")
-with open ('StatsSample.json') as f:
-    teamStats = json.load(f)
+
+teamStats = foldRequest("team/"+teamId,"GET")
+#Uncomment to use sample file
+#with open ('StatsSample.json') as f:
+#    teamStats = json.load(f)
 
 # Load team objects
 # First find if the team has been added to vROps
@@ -96,7 +95,7 @@ vropsObjects = vropsRequest("api/resources","GET","adapterKind=FoldingAtHome")
 teams = vropsObjects["resourceList"]
 teamRes = ""
 for team in teams:
-    if team["resourceKey"]["name"] == str(teamStats['team']):
+    if team["resourceKey"]["name"] == teamStats['name']:
         teamRes = team
         break
 
@@ -105,7 +104,7 @@ if teamRes == "":
     payload = {
     'description' : 'Folding@Home Team',
     'resourceKey' : {
-        'name' : teamStats['team'],
+        'name' : teamStats['name'],
         'adapterKindKey' : 'FoldingAtHome',
         'resourceKindKey' : 'Folding Team'
         }
@@ -131,7 +130,11 @@ payload = {
     "statKey" : "credit",
     "timestamps" : [timestamp],
     "data" : [ teamStats['credit'] ]
-   } ]
+   },{
+     "statKey" : "id",
+     "timestamps" : [ timestamp ],
+     "data" : [ teamStats['team'] ]
+    } ]
 }
 
 resourceId = teamRes["identifier"]
@@ -145,7 +148,7 @@ for donor in donorsList:
     fahObjs = vropsObjects["resourceList"]
     donorRes = ""
     for fahObj in fahObjs:
-        if fahObj["resourceKey"]["name"] == str(donor['id']):
+        if fahObj["resourceKey"]["name"] == donor['name']:
             donorRes = fahObj
             break
 
@@ -154,7 +157,7 @@ for donor in donorsList:
         payload = {
         'description' : 'Folding@Home Donor',
         'resourceKey' : {
-            'name' : donor['id'],
+            'name' : donor['name'],
             'adapterKindKey' : 'FoldingAtHome',
             'resourceKindKey' : 'Folding Donor'
             }
@@ -162,6 +165,7 @@ for donor in donorsList:
         donorRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
         #add to list of children to be added to teams
         teamChildren.append(donorRes["identifier"])
+        print(teamChildren)
      # Push donor stats; new donors are unranked so this has to be dealt with
     donorRank = 0
     if 'rank' in donor:
@@ -179,6 +183,10 @@ for donor in donorsList:
      "statKey" : "credit",
      "timestamps" : [timestamp],
      "data" : [ donor['credit'] ]
+    },{
+     "statKey" : "id",
+     "timestamps" : [ timestamp ],
+     "data" : [ donor['id'] ]
     } ]
     }
 
@@ -186,4 +194,5 @@ for donor in donorsList:
 
     response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload)
 
-response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",json.dumps(teamChildren))
+payload = {"uuids" : teamChildren}
+response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",payload)
