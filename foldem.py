@@ -85,6 +85,8 @@ def foldRequest(request,method,querystring="",payload=""):
 
 
 teamStats = foldRequest("team/"+teamId,"GET")
+with open ('StatsSample.json', 'w') as f:
+    json.dump(teamStats, f)
 #Uncomment to use sample file
 #with open ('StatsSample.json') as f:
 #    teamStats = json.load(f)
@@ -154,10 +156,15 @@ for donor in donorsList:
 
     # If no team found create it
     if donorRes == "":
+        donorName = "unamed"
+        if donor['name'] == "":
+            donorName = donorName + str(time.time())
+        else:
+            donorName = donor['name']
         payload = {
         'description' : 'Folding@Home Donor',
         'resourceKey' : {
-            'name' : donor['name'],
+            'name' : donorName,
             'adapterKindKey' : 'FoldingAtHome',
             'resourceKindKey' : 'Folding Donor'
             }
@@ -167,13 +174,19 @@ for donor in donorsList:
         teamChildren.append(donorRes["identifier"])
      # Push donor stats; new donors are unranked so this has to be dealt with
     donorRank = 0
+    donorCredit = 0
+    donorWUs = 0
     if 'rank' in donor:
         donorRank = donor['rank']
+    if 'wus' in donor:
+        donorWUs = donor['wus']
+    if 'credit' in donor:
+        donorCredit = donor['credit']
     payload = {
     "stat-content" : [ {
      "statKey" : "WUs",
      "timestamps" : [ timestamp ],
-     "data" : [ donor['wus'] ]
+     "data" : [ donorWUs ]
     },{
      "statKey" : "rank",
      "timestamps" : [ timestamp ],
@@ -181,7 +194,7 @@ for donor in donorsList:
     },{
      "statKey" : "credit",
      "timestamps" : [timestamp],
-     "data" : [ donor['credit'] ]
+     "data" : [ donorCredit ]
     },{
      "statKey" : "id",
      "timestamps" : [ timestamp ],
