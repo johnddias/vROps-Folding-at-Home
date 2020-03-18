@@ -27,7 +27,7 @@ def vropsGetToken(user=vropsUser, passwd=vropsPassword, authSource=vropsAuthsour
             }
         response = requests.request("POST", url, data=payload, headers=headers, verify=verify)
         return response.text
-    elif int(bearertoken["validity"])/1000 < time.time():
+    elif int(bearertoken["validity"])/1000 < int(round(time.time()*1000)):
         url = "https://" + host + "/suite-api/api/versions"
         headers = {
             'authorization': "vRealizeOpsToken " + bearertoken["token"],
@@ -114,7 +114,7 @@ if teamRes == "":
     teamRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
 
 # Push team stats
-timestamp = time.time()
+timestamp = int(round(time.time()*1000))
 payload = {
   "stat-content" : [ {
     "statKey" : "WUs",
@@ -158,7 +158,7 @@ for donor in donorsList:
     if donorRes == "":
         donorName = "unamed"
         if donor['name'] == "":
-            donorName = donorName + str(time.time())
+            donorName = donorName + str(int(round(time.time()*1000)))
         else:
             donorName = donor['name']
         payload = {
