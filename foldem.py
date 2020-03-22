@@ -5,6 +5,7 @@ import logging
 import sys
 import json
 
+
 # vars and configs
 bearertoken = ""
 vropsUser = "admin"
@@ -70,26 +71,26 @@ def vropsRequest(request,method,querystring="",payload=""):
     if response.text:
         return response.json()
 
-
 def foldRequest(request,method,querystring="",payload=""):
-    url = "https://stats.foldingathome.org/api/" + request
+    url = "https://api.foldingathome.org" + request
     headers = {
         'content-type' : "application/json"
     }
     retry = True
+    tryCount = 0
     while retry:
         response = requests.request(method, url, headers=headers)
         #print ("Request " + response.url + " returned status " + str(response.status_code))
         if response.status_code == 200:
             return response.json()
+        else:
+            if tryCount > 15:
+                retry = False
+            else:
+                tryCount += 1
+                time.sleep(5)
 
-
-teamStats = foldRequest("team/"+teamId,"GET")
-with open ('StatsSample.json', 'w') as f:
-    json.dump(teamStats, f)
-#Uncomment to use sample file
-#with open ('StatsSample.json') as f:
-#    teamStats = json.load(f)
+teamStats = foldRequest("/team/"+teamId,"GET")
 
 # Load team objects
 # First find if the team has been added to vROps
@@ -131,11 +132,11 @@ payload = {
    },{
     "statKey" : "credit",
     "timestamps" : [timestamp],
-    "data" : [ teamStats['credit'] ]
+    "data" : [ teamStats['score'] ]
    },{
      "statKey" : "id",
      "timestamps" : [ timestamp ],
-     "data" : [ teamStats['team'] ]
+     "data" : [ teamStats['id'] ]
     } ]
 }
 
@@ -144,67 +145,70 @@ resourceId = teamRes["identifier"]
 response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload)
 
 # Add and update team members
+memberStats = foldRequest("/team/"+teamId+"/members","GET")
+del memberStats[0]
 teamChildren = []
-donorsList = teamStats["donors"]
-for donor in donorsList:
+resourcestatcontent = []
+for member in memberStats:
     fahObjs = vropsObjects["resourceList"]
-    donorRes = ""
+    memberRes = ""
     for fahObj in fahObjs:
-        if fahObj["resourceKey"]["name"] == donor['name']:
-            donorRes = fahObj
+        if fahObj["resourceKey"]["name"] == member[0]:
+            memberRes = fahObj
             break
 
     # If no team found create it
-    if donorRes == "":
-        donorName = "unamed"
-        if donor['name'] == "":
-            donorName = donorName + str(int(round(time.time()*1000)))
+    if memberRes == "":
+        memberName = "unamed"
+        if member[0] == "":
+            memberName = memberName + str(int(round(time.time()*1000)))
         else:
-            donorName = donor['name']
+            memberName = member[0]
         payload = {
-        'description' : 'Folding@Home Donor',
+        'description' : 'Folding@Home Member',
         'resourceKey' : {
-            'name' : donorName,
+            'name' : memberName,
             'adapterKindKey' : 'FoldingAtHome',
             'resourceKindKey' : 'Folding Donor'
             }
         }
-        donorRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
+        memberRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
         #add to list of children to be added to teams
-        teamChildren.append(donorRes["identifier"])
-     # Push donor stats; new donors are unranked so this has to be dealt with
-    donorRank = 0
-    donorCredit = 0
-    donorWUs = 0
-    if 'rank' in donor:
-        donorRank = donor['rank']
-    if 'wus' in donor:
-        donorWUs = donor['wus']
-    if 'credit' in donor:
-        donorCredit = donor['credit']
-    payload = {
-    "stat-content" : [ {
-     "statKey" : "WUs",
-     "timestamps" : [ timestamp ],
-     "data" : [ donorWUs ]
-    },{
-     "statKey" : "rank",
-     "timestamps" : [ timestamp ],
-     "data" : [ donorRank ]
-    },{
-     "statKey" : "credit",
-     "timestamps" : [timestamp],
-     "data" : [ donorCredit ]
-    },{
-     "statKey" : "id",
-     "timestamps" : [ timestamp ],
-     "data" : [ donor['id'] ]
-    } ]
+        teamChildren.append(memberRes["identifier"])
+     # Push member stats; new members are unranked so this has to be dealt with
+    resourceId = memberRes["identifier"]
+    memberRank = 0
+    memberCredit = 0
+    memberWUs = 0
+    if 'rank' in member:
+        memberRank = member[2]
+    if 'wus' in member:
+        memberWUs = member[4]
+    if 'credit' in member:
+        memberCredit = member[3]
+    memberStat = {"id" : resourceId,
+     "stat-content" : [ {
+         "statKey" : "WUs",
+         "timestamps" : [ timestamp ],
+         "data" : [ memberWUs ]
+        },{
+         "statKey" : "rank",
+         "timestamps" : [ timestamp ],
+         "data" : [ memberRank ]
+        },{
+         "statKey" : "credit",
+         "timestamps" : [timestamp],
+         "data" : [ memberCredit ]
+        },{
+         "statKey" : "id",
+         "timestamps" : [ timestamp ],
+         "data" : [ member[1] ]
+        } ]
     }
+    resourcestatcontent.push(memberStat)
 
-    resourceId = donorRes["identifier"]
-
-    response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload)
+payload = { "resource-stat-content" : resourcestatcontent }
+response = vropsRequest("api/resources/stats","POST","",payload)
 
 payload = {"uuids" : teamChildren}
 response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",payload)
