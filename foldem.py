@@ -49,7 +49,7 @@ def vropsGetToken(user=vropsUser, passwd=vropsPassword, authSource=vropsAuthsour
     else:
         return json.dumps(bearertoken)
 
-def vropsRequest(request,method,querystring="",payload=""):
+def vropsRequest(request,method,querystring="",payload="",log=True):
     global bearertoken
     bearertoken = json.loads(vropsGetToken())
     url = "https://" + vropsHost + "/suite-api/" + request
@@ -67,7 +67,8 @@ def vropsRequest(request,method,querystring="",payload=""):
         response = requests.request(method, url, headers=headers, json=payload, verify=verify)
     else:
         response = requests.request(method, url, headers=headers, verify=verify)
-    print ("Request " + response.url + " returned status " + str(response.status_code))
+    if log == True:
+        print ("Request " + response.url + " returned status " + str(response.status_code))
     if response.text:
         return response.json()
 
@@ -112,7 +113,7 @@ if teamRes == "":
         'resourceKindKey' : 'Folding Team'
         }
     }
-    teamRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
+    teamRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload,False)
 
 # Push team stats
 timestamp = int(round(time.time()*1000))
@@ -142,7 +143,7 @@ payload = {
 
 resourceId = teamRes["identifier"]
 
-response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload)
+response = vropsRequest("api/resources/"+resourceId+"/stats","POST","",payload,False)
 
 # Add and update team members
 memberStats = foldRequest("/team/"+teamId+"/members","GET")
@@ -153,15 +154,16 @@ for member in memberStats:
     fahObjs = vropsObjects["resourceList"]
     memberRes = ""
     for fahObj in fahObjs:
-        if fahObj["resourceKey"]["name"] == member[0]:
+        if fahObj["resourceKey"]["name"] == str(member[0]):
             memberRes = fahObj
             break
 
-    # If no team found create it
+    # If no member found create it
     if memberRes == "":
-        memberName = "unamed"
-        if member[0] == "":
-            memberName = memberName + str(int(round(time.time()*1000)))
+        memberName = ""
+        if len(member[0]) == 0:
+            print("Invalid name " + member[0] + ", skipping.")
+            break
         else:
             memberName = member[0]
         payload = {
@@ -172,43 +174,39 @@ for member in memberStats:
             'resourceKindKey' : 'Folding Donor'
             }
         }
-        memberRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload)
+        print("Adding member " + memberName)
+        memberRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload,False)
         #add to list of children to be added to teams
         teamChildren.append(memberRes["identifier"])
      # Push member stats; new members are unranked so this has to be dealt with
     resourceId = memberRes["identifier"]
-    memberRank = 0
-    memberCredit = 0
-    memberWUs = 0
-    if 'rank' in member:
-        memberRank = member[2]
-    if 'wus' in member:
-        memberWUs = member[4]
-    if 'credit' in member:
-        memberCredit = member[3]
+    memberRank = member[2]
+    memberWUs = member[4]
+    memberCredit = member[3]
     memberStat = {"id" : resourceId,
-     "stat-content" : [ {
+     "stat-contents" : [ {
          "statKey" : "WUs",
          "timestamps" : [ timestamp ],
-         "data" : [ memberWUs ]
+         "data" : [ member[4] ]
         },{
          "statKey" : "rank",
          "timestamps" : [ timestamp ],
-         "data" : [ memberRank ]
+         "data" : [ member[2] ]
         },{
          "statKey" : "credit",
          "timestamps" : [timestamp],
-         "data" : [ memberCredit ]
+         "data" : [ member[3] ]
         },{
          "statKey" : "id",
          "timestamps" : [ timestamp ],
          "data" : [ member[1] ]
         } ]
     }
-    resourcestatcontent.push(memberStat)
+    resourcestatcontent.append(memberStat)
 
 payload = { "resource-stat-content" : resourcestatcontent }
 response = vropsRequest("api/resources/stats","POST","",payload)
 
-payload = {"uuids" : teamChildren}
-response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",payload)
+if teamChildren:
+    payload = {"uuids" : teamChildren}
+    response = vropsRequest("api/resources/"+teamRes["identifier"]+"/relationships/CHILD","POST","",payload)
