@@ -4,6 +4,7 @@ import time
 import logging
 import sys
 import json
+import random
 
 
 # vars and configs
@@ -154,16 +155,20 @@ for member in memberStats:
     fahObjs = vropsObjects["resourceList"]
     memberRes = ""
     for fahObj in fahObjs:
-        if fahObj["resourceKey"]["name"] == str(member[0]):
+        resName = fahObj["resourceKey"]["name"]
+        if (resName == member[0]) or (resName == str(member[1])) or (resName == member[0]+"__"):
             memberRes = fahObj
             break
-
     # If no member found create it
     if memberRes == "":
         memberName = ""
-        if len(member[0]) == 0:
-            print("Invalid name " + member[0] + ", skipping.")
-            break
+        if len(member[0]) <=2:
+            print("Invalid name " + member[0] + ", fixing.")
+            if len(member[0]) == 0:
+                memberName = str(member[1])
+            else:
+                memberName = member[0] + str("__")
+            print("New name is " + memberName)
         else:
             memberName = member[0]
         payload = {
@@ -175,7 +180,7 @@ for member in memberStats:
             }
         }
         print("Adding member " + memberName)
-        memberRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload,False)
+        memberRes = vropsRequest("api/resources/adapterkinds/foldingathome","POST","",payload,True)
         #add to list of children to be added to teams
         teamChildren.append(memberRes["identifier"])
      # Push member stats; new members are unranked so this has to be dealt with
