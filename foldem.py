@@ -156,6 +156,8 @@ for member in memberStats:
     memberRes = ""
     for fahObj in fahObjs:
         resName = fahObj["resourceKey"]["name"]
+        if resName.find("&amp;") > 0:
+            resName = resName.replace("&amp;","&")
         if (resName == member[0]) or (resName == str(member[1])) or (resName == member[0]+"__"):
             memberRes = fahObj
             break
